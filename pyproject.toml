@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "obb-ibkr-platform"
+version = "0.1.0"
+description = "Self-hosted data-analysis platform: OpenBB Platform + Interactive Brokers (IBKR/TWS), served as REST API and MCP server for Claude Code."
+requires-python = ">=3.10"
+dependencies = [
+    "ib_async>=2.0.0",
+    "python-dotenv>=1.0.0",
+    # OpenBB and FastAPI/uvicorn are provided by the surrounding environment.
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100

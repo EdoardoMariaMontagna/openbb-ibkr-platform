@@ -1,0 +1,3 @@
+# Project-specific deps. OpenBB, FastAPI and uvicorn come from the openbb_env venv.
+ib_async>=2.0.0
+python-dotenv>=1.0.0
