@@ -5,7 +5,8 @@ Checks:
   2. The IBKR client reports a clean (non-crashing) status when TWS is absent.
   3. OpenBB is importable and a keyless yfinance quote works (network permitting).
 
-Run:  PYTHONPATH=src /Users/applemacbookpro16/openbb_env/bin/python scripts/smoke_test.py
+Run (with your OpenBB virtualenv activated):
+    PYTHONPATH=src python scripts/smoke_test.py
 """
 from __future__ import annotations
 

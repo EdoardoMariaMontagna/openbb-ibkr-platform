@@ -47,27 +47,40 @@ tests/test_wiring.py   # pytest wiring/safety tests
 
 ## Prerequisites
 
-- The `openbb_env` virtualenv at `/Users/applemacbookpro16/openbb_env` (already
-  has OpenBB, FastAPI, uvicorn, and — added by this project — `ib_async`).
+- **Python 3.10+** and a virtual environment with the [OpenBB
+  Platform](https://github.com/OpenBB-finance/OpenBB) installed (`pip install
+  openbb`), plus FastAPI/uvicorn (pulled in by OpenBB) and `ib_async`.
 - For any `/ibkr/*` data: **TWS or IB Gateway running locally** with the API
   enabled (*Configure -> API -> Settings -> Enable ActiveX and Socket Clients*,
-  and add `127.0.0.1` as a trusted IP). Everything else (OpenBB, `/analytics`
-  OpenBB side) works without it.
+  and add `127.0.0.1` as a trusted IP). Everything else (OpenBB, the OpenBB
+  side of `/analytics`) works without it.
 
 ## Setup
 
 ```bash
-cd /Users/applemacbookpro16/openbb_platform_project
-cp .env.example .env            # then edit IBKR_PORT / IBKR_READONLY as needed
-/Users/applemacbookpro16/openbb_env/bin/pip install -e .
+git clone https://github.com/<your-account>/openbb-ibkr-platform.git
+cd openbb-ibkr-platform
+
+python3 -m venv .venv                # or reuse an existing OpenBB virtualenv
+source .venv/bin/activate
+pip install openbb ib_async
+pip install -e .
+
+cp .env.example .env                 # then edit IBKR_PORT / IBKR_READONLY as needed
 ```
 
 ## Run
+
+With the virtualenv from Setup **activated**, the scripts find `openbb-api` /
+`openbb-mcp` on `PATH` automatically. If you keep OpenBB in a separate venv
+instead, point the scripts at it with `OPENBB_VENV=/path/to/venv` (no need to
+activate it).
 
 **REST API** (Swagger UI at http://127.0.0.1:6900/docs):
 
 ```bash
 ./scripts/serve_api.sh
+# or, without activating: OPENBB_VENV=/path/to/venv ./scripts/serve_api.sh
 ```
 
 **MCP server for Claude Code** (http://127.0.0.1:6901/mcp):
@@ -110,9 +123,11 @@ pointing at a live port. `.env` is git-ignored so credentials/keys never commit.
 
 ## Test
 
+With the virtualenv activated:
+
 ```bash
-PYTHONPATH=src /Users/applemacbookpro16/openbb_env/bin/python scripts/smoke_test.py   # offline wiring
-PYTHONPATH=src /Users/applemacbookpro16/openbb_env/bin/python -m pytest -q             # unit tests
+PYTHONPATH=src python scripts/smoke_test.py   # offline wiring check, no TWS needed
+PYTHONPATH=src python -m pytest -q             # unit tests
 ```
 
 ## Roadmap ideas
