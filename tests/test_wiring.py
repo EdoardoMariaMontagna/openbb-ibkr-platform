@@ -1,6 +1,7 @@
 """Wiring tests that run without TWS or network — safe for CI.
 
-Run:  PYTHONPATH=src /Users/applemacbookpro16/openbb_env/bin/python -m pytest -q
+Run (with your OpenBB virtualenv activated):
+    PYTHONPATH=src python -m pytest -q
 """
 from __future__ import annotations
 
