@@ -17,3 +17,6 @@ dist/
 
 # OpenBB user data (may contain keys)
 OpenBBUserData/
+
+# Audit trail (order attempts) — local runtime data, not source
+logs/

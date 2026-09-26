@@ -1,3 +1,6 @@
-# Project-specific deps. OpenBB, FastAPI and uvicorn come from the openbb_env venv.
+# Runtime dependencies. Mirrors pyproject.toml's [project.dependencies] for
+# environments that install via `pip install -r requirements.txt` instead of
+# `pip install -e .`.
+openbb>=4.7.0
 ib_async>=2.0.0
 python-dotenv>=1.0.0

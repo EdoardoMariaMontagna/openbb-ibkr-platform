@@ -11,9 +11,16 @@ requires-python = ">=3.10"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 dependencies = [
+    "openbb>=4.7.0",
     "ib_async>=2.0.0",
     "python-dotenv>=1.0.0",
-    # OpenBB and FastAPI/uvicorn are provided by the surrounding environment.
+    # FastAPI/uvicorn are pulled in transitively by openbb.
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pip-audit>=2.7.0",
 ]
 
 [tool.setuptools.packages.find]
