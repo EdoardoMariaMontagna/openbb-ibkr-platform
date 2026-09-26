@@ -21,6 +21,12 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pip-audit>=2.7.0",
+    # FastAPI's TestClient (via starlette) needs an HTTP client. Older
+    # starlette imports "httpx"; starlette >=1.0 imports its successor
+    # "httpx2". Declaring both keeps `pytest` working regardless of which
+    # starlette version this project's other dependencies resolve to.
+    "httpx",
+    "httpx2",
 ]
 
 [tool.setuptools.packages.find]
