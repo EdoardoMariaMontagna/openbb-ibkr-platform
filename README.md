@@ -136,3 +136,14 @@ PYTHONPATH=src python -m pytest -q             # unit tests
 - Risk/exposure analytics across the enriched portfolio (sector/currency).
 - Streaming quotes via websockets.
 - Optional web dashboard (currently headless: API + MCP only).
+
+## License
+
+[GNU AGPL-3.0-only](LICENSE). Chosen to match the [OpenBB
+Platform](https://github.com/OpenBB-finance/OpenBB)'s own license — this
+project extends OpenBB's code in-process, so it inherits AGPL's copyleft — and
+because the AGPL closes the "SaaS loophole" that plain GPL leaves open: if you
+run a modified version of this platform as a network service (locally or on a
+server), you must make the corresponding source available to its users, not
+just to people who receive a distributed copy. This keeps the project free
+and open, whether it's used on a laptop or deployed on a server.
