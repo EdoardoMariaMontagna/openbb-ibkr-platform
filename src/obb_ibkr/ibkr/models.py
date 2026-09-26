@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConnectionStatus(BaseModel):
@@ -90,3 +90,13 @@ class OrderResult(BaseModel):
     filled: float = 0
     avg_fill_price: Optional[float] = None
     message: str = ""
+
+
+class AuditEvent(BaseModel):
+    """One line of the order audit trail. Shape varies by event type, so extra
+    fields (reason, order_id, status, ...) are allowed through as-is."""
+
+    model_config = ConfigDict(extra="allow")
+
+    ts: str
+    event: str

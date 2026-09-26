@@ -15,6 +15,7 @@ import asyncio
 import math
 from typing import Optional
 
+from ..audit import log_order_event
 from ..config import get_settings
 from .models import (
     AccountValue,
@@ -222,16 +223,33 @@ class IBKRClient:
     # -- write operations (guarded) ----------------------------------------
     async def place_order(self, req: OrderRequest) -> OrderResult:
         settings = get_settings()
+        base_fields = {
+            "symbol": req.symbol,
+            "action": req.action,
+            "quantity": req.quantity,
+            "order_type": req.order_type,
+            "limit_price": req.limit_price,
+            "confirm": req.confirm,
+        }
+
+        def blocked(reason: str, message: str) -> IBKRError:
+            log_order_event("blocked", reason=reason, **base_fields)
+            return IBKRError(message)
+
         if settings.ibkr_readonly:
-            raise IBKRError(
+            raise blocked(
+                "readonly",
                 "Order placement is disabled: IBKR_READONLY is true. Set IBKR_READONLY=false "
-                "to enable trading (paper account strongly recommended first)."
+                "to enable trading (paper account strongly recommended first).",
             )
         if not req.confirm:
-            raise IBKRError("Order not transmitted: set 'confirm': true to actually place the order.")
+            raise blocked(
+                "not_confirmed",
+                "Order not transmitted: set 'confirm': true to actually place the order.",
+            )
         action = req.action.upper()
         if action not in {"BUY", "SELL"}:
-            raise IBKRError("action must be 'BUY' or 'SELL'.")
+            raise blocked("invalid_action", "action must be 'BUY' or 'SELL'.")
 
         from ib_async import LimitOrder, MarketOrder
 
@@ -239,18 +257,20 @@ class IBKRClient:
         contract = self._build_contract(req.symbol, req.sec_type, req.exchange, req.currency)
         qualified = await ib.qualifyContractsAsync(contract)
         if not qualified:
-            raise IBKRError(f"Could not qualify contract for symbol '{req.symbol}'.")
+            raise blocked(
+                "contract_not_qualified", f"Could not qualify contract for symbol '{req.symbol}'."
+            )
         contract = qualified[0]
 
         order_type = req.order_type.upper()
         if order_type == "LMT":
             if req.limit_price is None:
-                raise IBKRError("limit_price is required for LMT orders.")
+                raise blocked("missing_limit_price", "limit_price is required for LMT orders.")
             order = LimitOrder(action, req.quantity, req.limit_price)
         elif order_type == "MKT":
             order = MarketOrder(action, req.quantity)
         else:
-            raise IBKRError("order_type must be 'MKT' or 'LMT'.")
+            raise blocked("invalid_order_type", "order_type must be 'MKT' or 'LMT'.")
 
         trade = ib.placeOrder(contract, order)
         # Give IBKR a moment to acknowledge; don't block indefinitely on fills.
@@ -265,6 +285,15 @@ class IBKRClient:
             }:
                 break
         st = trade.orderStatus
+        log_order_event(
+            "submitted",
+            order_id=trade.order.orderId,
+            status=st.status,
+            filled=float(st.filled or 0),
+            avg_fill_price=_clean(st.avgFillPrice),
+            is_paper=settings.ibkr_is_paper,
+            **base_fields,
+        )
         return OrderResult(
             submitted=True,
             order_id=trade.order.orderId,

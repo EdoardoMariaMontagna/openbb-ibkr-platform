@@ -6,11 +6,14 @@ lets Claude Code read the portfolio and quotes as first-class tools.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..audit import read_recent_events
+from ..security import require_api_key
 from .client import IBKRError, client
 from .models import (
     AccountValue,
+    AuditEvent,
     ConnectionStatus,
     OrderRequest,
     OrderResult,
@@ -19,7 +22,7 @@ from .models import (
     Quote,
 )
 
-router = APIRouter(prefix="/ibkr", tags=["IBKR"])
+router = APIRouter(prefix="/ibkr", tags=["IBKR"], dependencies=[Depends(require_api_key)])
 
 
 def _guard(exc: IBKRError) -> HTTPException:
@@ -80,3 +83,11 @@ async def order(req: OrderRequest) -> OrderResult:
         return await client.place_order(req)
     except IBKRError as exc:
         raise _guard(exc)
+
+
+@router.get("/audit-log", response_model=list[AuditEvent], summary="Order attempt audit trail")
+async def audit_log(
+    limit: int = Query(50, ge=1, le=1000, description="Max number of events to return"),
+) -> list[AuditEvent]:
+    """Most recent order attempts (blocked or submitted), newest first."""
+    return [AuditEvent(**event) for event in read_recent_events(limit=limit)]

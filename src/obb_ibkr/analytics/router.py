@@ -1,12 +1,13 @@
 """FastAPI router for cross-source (IBKR + OpenBB) analytics."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..ibkr.client import IBKRError
+from ..security import require_api_key
 from . import service
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+router = APIRouter(prefix="/analytics", tags=["Analytics"], dependencies=[Depends(require_api_key)])
 
 
 @router.get("/portfolio", summary="IBKR portfolio enriched with OpenBB data")
