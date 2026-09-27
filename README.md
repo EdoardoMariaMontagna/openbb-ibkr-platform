@@ -180,6 +180,9 @@ for now since some current findings sit in OpenBB's own transitive dependency
 tree rather than in code this project controls — visible and tracked rather
 than silently ignored.
 
+**Found a vulnerability?** See [SECURITY.md](SECURITY.md) for how to report
+it privately, and this project's disclosure policy.
+
 ## Test
 
 With the virtualenv activated:
