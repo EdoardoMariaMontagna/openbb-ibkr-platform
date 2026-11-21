@@ -1,6 +1,6 @@
 # Runtime dependencies. Mirrors pyproject.toml's [project.dependencies] for
 # environments that install via `pip install -r requirements.txt` instead of
 # `pip install -e .`.
-openbb>=4.7.0
+openbb>=4.7.0,<6  # OpenBB 4.7.x or 5.x; see pyproject.toml extras "openbb4" / "openbb5"
 ib_async>=2.0.0
 python-dotenv>=1.0.0

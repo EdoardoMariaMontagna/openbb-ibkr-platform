@@ -2,7 +2,7 @@
 
 A self-hosted financial data-analysis platform that combines the
 [OpenBB Platform](https://github.com/OpenBB-finance/OpenBB) (market data,
-fundamentals, economy, news across ~50 providers) with your **live Interactive
+fundamentals, economy, news from dozens of providers) with your **live Interactive
 Brokers (IBKR / TWS)** account, exposed through a single FastAPI application
 that runs both as a **REST API** and as an **MCP server for Claude Code**.
 
@@ -23,12 +23,32 @@ The same app object serves both surfaces, so **every endpoint — including your
 live IBKR portfolio — automatically becomes an MCP tool** that Claude Code can
 call.
 
+## OpenBB versions
+
+The same codebase runs on both OpenBB release lines:
+
+| | OpenBB 4.7.x (`openbb-core` 1.x) | OpenBB 5.x (`openbb-core` 2.x) |
+|---|---|---|
+| Install | `pip install -e ".[openbb4]"` | `pip install -e ".[openbb5]"` |
+| REST API (`serve_api.sh`) | ✅ | ✅ |
+| MCP server (`serve_mcp.sh`) | ⛔ refused by default ([why](SECURITY.md#known-upstream-issues)) | ✅ with server auth |
+| Default quote provider | `yfinance` | `yfinance` if installed (`.[yfinance5]`), else `nasdaq` |
+
+OpenBB 5 regrouped its commands by provider (`obb.equity.price.quote(provider="x")`
+became `obb.x.equity...`). All calls from this project go through
+[`openbb_compat.py`](src/obb_ibkr/openbb_compat.py), which detects the installed
+line. CI runs the full test suite against both.
+
+**Releases:** [`v.2026-09-27`](../../releases/tag/v.2026-09-27) preserves the
+original OpenBB-4-only architecture. Later releases carry the dual-version code.
+
 ## Layout
 
 ```
 src/obb_ibkr/
   config.py            # env-based settings (IBKR, security, audit log)
   app.py               # composed FastAPI app: OpenBB API + IBKR + analytics routers
+  openbb_compat.py     # OpenBB 4.x / 5.x compatibility layer (all obb calls go here)
   security.py          # API-key auth dependency for /ibkr and /analytics
   audit.py             # append-only JSON-lines audit trail for order attempts
   ibkr/
@@ -40,12 +60,14 @@ src/obb_ibkr/
     router.py          # /analytics/* endpoints
 scripts/
   serve_api.sh              # run the REST API
-  serve_mcp.sh               # run the MCP server for Claude Code
+  serve_mcp.sh               # run the MCP server for Claude Code (with safety checks)
+  mcp_auth_header.sh         # Claude Code headersHelper: MCP bearer token from mcp_settings.json
   smoke_test.py               # offline wiring check (no TWS needed)
   audit_deps.sh                # run pip-audit against installed dependencies
   restrict_openbb_cors.py       # one-time setup: restrict OpenBB's system-wide CORS
-.github/workflows/ci.yml   # pytest + smoke test + dependency audit on every push
-tests/                      # pytest suite (wiring, security, audit log)
+.github/workflows/ci.yml   # pytest + smoke test + dependency audit, for OpenBB 4 and 5
+tests/                      # pytest suite (wiring, security, audit log, compat, MCP guard)
+docs/DEPLOYMENT.md          # server deployment checklist
 .mcp.json                    # Claude Code MCP server config
 .env.example                  # copy to .env and edit
 ```
@@ -53,8 +75,8 @@ tests/                      # pytest suite (wiring, security, audit log)
 ## Prerequisites
 
 - **Python 3.10+** and a virtual environment with the [OpenBB
-  Platform](https://github.com/OpenBB-finance/OpenBB) installed (`pip install
-  openbb`), plus FastAPI/uvicorn (pulled in by OpenBB) and `ib_async`.
+  Platform](https://github.com/OpenBB-finance/OpenBB) 4.7.x or 5.x. The extras
+  below install the right OpenBB packages, plus `ib_async`.
 - For any `/ibkr/*` data: **TWS or IB Gateway running locally** with the API
   enabled (*Configure -> API -> Settings -> Enable ActiveX and Socket Clients*,
   and add `127.0.0.1` as a trusted IP). Everything else (OpenBB, the OpenBB
@@ -68,7 +90,9 @@ cd openbb-ibkr-platform
 
 python3 -m venv .venv                # or reuse an existing OpenBB virtualenv
 source .venv/bin/activate
-pip install -e ".[dev]"               # add [dev] for pytest + pip-audit
+pip install -e ".[openbb5]"           # or ".[openbb4]"; add ",dev" for pytest + pip-audit
+# optional on OpenBB 5: ".[openbb5,yfinance5]". Note that openbb-yfinance 2.x is
+# published from an OpenBB maintainer's personal repo, not the official one.
 
 cp .env.example .env
 # then at minimum: set OBB_IBKR_API_KEY (openssl rand -hex 32) before exposing
@@ -89,17 +113,22 @@ activate it).
 # or, without activating: OPENBB_VENV=/path/to/venv ./scripts/serve_api.sh
 ```
 
-**MCP server for Claude Code** (http://127.0.0.1:6901/mcp):
+**MCP server for Claude Code** (http://127.0.0.1:6901/mcp, OpenBB 5):
 
 ```bash
 ./scripts/serve_mcp.sh
 ```
 
-Then register it with Claude Code (the repo already ships `.mcp.json`):
+Before starting, the script checks that it's running on OpenBB 5 (it refuses
+4.x), keeps OpenBB's `openbb-cli` dispatcher tools off, and refuses a
+non-loopback host unless MCP server auth is configured. To require a password
+even locally, put `"server_auth": ["<user>", "<password>"]` in
+`~/.openbb_platform/mcp_settings.json` and `chmod 600` it.
 
-```bash
-claude mcp add --transport http openbb-ibkr http://127.0.0.1:6901/mcp
-```
+The repo ships `.mcp.json`, so Claude Code picks the server up when started in
+this folder. Its `headersHelper` (`scripts/mcp_auth_header.sh`) reads the
+password from that file on every connection, so it is never copied into Claude
+Code's own config.
 
 ## Endpoints
 
@@ -115,9 +144,13 @@ claude mcp add --transport http openbb-ibkr http://127.0.0.1:6901/mcp
 | `GET /analytics/portfolio` | IBKR portfolio joined with OpenBB reference + weights |
 | `GET /analytics/compare-quote?symbol=AAPL` | IBKR quote vs OpenBB quote side-by-side |
 
-Plus all ~280 native OpenBB endpoints under `/api/v1/...` (unauthenticated,
-exactly as upstream OpenBB ships them — only the routes added by this project
-are behind the API key below).
+`provider` is optional on both analytics routes (default: a keyless provider,
+see [OpenBB versions](#openbb-versions)), and only installed providers are accepted.
+
+Plus every native OpenBB endpoint under `/api/v1/...` (about 270 on 4.7.1, 1,180+
+on 5.0 with its default providers). These are unauthenticated, exactly as
+upstream OpenBB ships them: only the routes added by this project are behind
+the API key below.
 
 ## Security
 
@@ -180,12 +213,18 @@ for now since some current findings sit in OpenBB's own transitive dependency
 tree rather than in code this project controls — visible and tracked rather
 than silently ignored.
 
+**MCP server.** `scripts/serve_mcp.sh` won't serve MCP on OpenBB 4.x, keeps
+OpenBB 5's `openbb-cli` dispatcher tools disabled, and won't bind beyond
+loopback without MCP server auth. See [SECURITY.md](SECURITY.md#known-upstream-issues).
+
+**Deploying to a server?** Follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 **Found a vulnerability?** See [SECURITY.md](SECURITY.md) for how to report
 it privately, and this project's disclosure policy.
 
 ## Test
 
-With the virtualenv activated:
+With the virtualenv activated (any OpenBB line; CI runs both):
 
 ```bash
 PYTHONPATH=src python scripts/smoke_test.py   # offline wiring check, no TWS needed

@@ -9,9 +9,37 @@ sponsor gets a fix before the public release does.
 ## Supported Versions
 
 This project is pre-1.0 (`0.x`). Only the latest commit on `main` is
-supported — there are no maintained release branches yet. Always run the
-latest `main` if you depend on this project for anything that touches real
-money.
+supported, and there are no maintained release branches. `main` supports
+both OpenBB 4.7.x and OpenBB 5.x. Always run the latest `main` if you depend
+on this project for anything that touches real money.
+
+Tagged releases are snapshots, not maintained branches. In particular
+`v.2026-09-27`, the original OpenBB-4-only architecture, is kept for reference
+only: its MCP server is affected by the first upstream issue below.
+
+## Known upstream issues
+
+These are issues in OpenBB itself, not in this project's code. They are
+listed here because they affect this project's default setup.
+
+- **`openbb-mcp-server` <= 1.4.1 (OpenBB 4.x):** the built-in `install_skill`
+  MCP tool writes files without adequate path validation. It is registered
+  by default, can't be disabled, and the MCP server has no authentication
+  by default. This was raised upstream (OpenBB PR #7551) and fixed in
+  `openbb-mcp-server` 2.0.1 (OpenBB 5). **Mitigation here:** `scripts/serve_mcp.sh`
+  refuses to start on OpenBB 4.x unless `OBB_IBKR_ALLOW_LEGACY_MCP=1` is set,
+  and even then only on a loopback host. Use OpenBB 5 for MCP.
+- **OpenBB 5 `openbb-cli` dispatcher MCP tools** (`openbb_dispatch`,
+  `openbb_batch_dispatch`) are enabled by default and broader than the
+  regular per-command tools. **Mitigation here:** `serve_mcp.sh` sets
+  `OPENBB_MCP_ENABLE_CLI_TOOLS=false` unless you set it explicitly.
+- **Permissive CORS by default (both lines):** OpenBB's launchers allow every
+  browser origin unless `~/.openbb_platform/system_settings.json` restricts it.
+  **Mitigation here:** run `scripts/restrict_openbb_cors.py`.
+- **OpenBB 5.0.0: `OPENBB_API_AUTH=true` crashes the API at startup.** This
+  comes from `openbb-federal-reserve` 2.0.0. Native OpenBB routes then have no
+  working in-process auth. **Mitigation:** keep the servers on loopback and use
+  a tunnel or an authenticating proxy (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
 ## Reporting a Vulnerability
 

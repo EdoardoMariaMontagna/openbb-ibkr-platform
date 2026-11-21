@@ -4,20 +4,41 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obb-ibkr-platform"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-hosted data-analysis platform: OpenBB Platform + Interactive Brokers (IBKR/TWS), served as REST API and MCP server for Claude Code."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 dependencies = [
-    "openbb>=4.7.0",
+    # Both OpenBB release lines are supported (see src/obb_ibkr/openbb_compat.py).
+    # Pick one explicitly with the "openbb4" / "openbb5" extras below.
+    "openbb>=4.7.0,<6",
     "ib_async>=2.0.0",
     "python-dotenv>=1.0.0",
     # FastAPI/uvicorn are pulled in transitively by openbb.
 ]
 
 [project.optional-dependencies]
+# OpenBB Platform 4.x (openbb-core 1.x). REST API only: scripts/serve_mcp.sh
+# refuses to serve MCP on this line by default (see SECURITY.md).
+openbb4 = [
+    "openbb>=4.7.0,<5",
+    "openbb-platform-api>=1.3,<2",
+]
+# OpenBB Platform 5.x (openbb-core 2.x). openbb-mcp-server 2.0.1 is the first
+# release with path validation in its install_skill tool.
+openbb5 = [
+    "openbb>=5.0.0,<6",
+    "openbb-platform-api>=2.0.1,<3",
+    "openbb-mcp-server>=2.0.1,<3",
+]
+# yfinance for OpenBB 5. Optional, and NOT built from the official OpenBB
+# repository: it is published from an OpenBB maintainer's personal repository
+# (deeleeramone/openbb-danglewood). Without it, OpenBB 5 falls back to nasdaq.
+yfinance5 = [
+    "openbb-yfinance>=2.1.0,<3",
+]
 dev = [
     "pytest>=8.0.0",
     "pip-audit>=2.7.0",

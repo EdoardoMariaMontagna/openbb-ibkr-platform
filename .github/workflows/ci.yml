@@ -8,7 +8,13 @@ on:
 
 jobs:
   test:
+    name: test (OpenBB ${{ matrix.openbb }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both OpenBB release lines are supported from the same codebase.
+        openbb: ["4", "5"]
     steps:
       - uses: actions/checkout@v4
 
@@ -16,8 +22,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package with dev extras
-        run: pip install -e ".[dev]"
+      - name: Install package with dev extras for OpenBB ${{ matrix.openbb }}
+        run: pip install -e ".[dev,openbb${{ matrix.openbb }}]"
+
+      - name: Show resolved OpenBB versions
+        run: pip list | grep -iE '^(openbb|openbb-core|openbb-platform-api|openbb-mcp-server|fastapi) '
 
       - name: Unit tests (no TWS/network required)
         run: PYTHONPATH=src python -m pytest -q
@@ -26,7 +35,12 @@ jobs:
         run: PYTHONPATH=src python scripts/smoke_test.py
 
   dependency-audit:
+    name: dependency-audit (OpenBB ${{ matrix.openbb }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        openbb: ["4", "5"]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,8 +48,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install package with dev extras
-        run: pip install -e ".[dev]"
+      - name: Install package with dev extras for OpenBB ${{ matrix.openbb }}
+        run: pip install -e ".[dev,openbb${{ matrix.openbb }}]"
 
       - name: Scan dependencies for known CVEs (pip-audit)
         # Non-blocking for now: several current findings live in OpenBB's own
