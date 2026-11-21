@@ -4,27 +4,31 @@ This is the core value of the platform: your *actual* IBKR positions enriched
 with OpenBB's fundamentals, quotes and news — the kind of joined view Claude
 Code can then reason over via MCP.
 
-OpenBB calls default to the ``yfinance`` provider, which needs no API key.
-Swap the provider (fmp, intrinio, tiingo, ...) once keys are configured.
+OpenBB calls go through ``openbb_compat`` so they work on OpenBB 4.x and 5.x.
+When no provider is given, a keyless default is used (``yfinance``, or
+``nasdaq`` on 5.x without the openbb-yfinance extension). Pass another
+provider once its API key is configured.
 """
 from __future__ import annotations
 
 from typing import Any, Optional
 
+from .. import openbb_compat
 from ..ibkr.client import IBKRError, client
 
 
-def _obb():
-    from openbb import obb
+def _provider_or_none(provider: Optional[str]) -> Optional[str]:
+    """Resolved provider name, or None if it's invalid/unavailable."""
+    try:
+        return openbb_compat.resolve_provider(provider)
+    except openbb_compat.ProviderNotAvailable:
+        return None
 
-    return obb
 
-
-async def _openbb_quote(symbol: str, provider: str = "yfinance") -> Optional[dict[str, Any]]:
+async def _openbb_quote(symbol: str, provider: Optional[str] = None) -> Optional[dict[str, Any]]:
     """Best-effort OpenBB quote; returns None if the provider/symbol fails."""
     try:
-        obb = _obb()
-        res = obb.equity.price.quote(symbol=symbol, provider=provider)
+        res = openbb_compat.equity_quote(symbol, provider)
         rows = res.results if hasattr(res, "results") else res
         if not rows:
             return None
@@ -34,13 +38,14 @@ async def _openbb_quote(symbol: str, provider: str = "yfinance") -> Optional[dic
         return None
 
 
-async def enrich_portfolio(provider: str = "yfinance") -> dict[str, Any]:
+async def enrich_portfolio(provider: Optional[str] = None) -> dict[str, Any]:
     """Return IBKR portfolio joined with OpenBB reference data per symbol.
 
     For every equity position we attach the OpenBB quote so you can compare
     IBKR's mark against an independent source and pull in name/exchange/etc.
     """
     portfolio = await client.portfolio()
+    provider = _provider_or_none(provider) or provider
 
     enriched: list[dict[str, Any]] = []
     total_market_value = 0.0
@@ -84,8 +89,9 @@ async def enrich_portfolio(provider: str = "yfinance") -> dict[str, Any]:
     }
 
 
-async def compare_quote(symbol: str, provider: str = "yfinance") -> dict[str, Any]:
+async def compare_quote(symbol: str, provider: Optional[str] = None) -> dict[str, Any]:
     """Side-by-side IBKR live quote vs OpenBB quote for one symbol."""
+    provider = _provider_or_none(provider) or provider
     ibkr_quote = None
     ibkr_error = None
     try:

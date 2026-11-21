@@ -11,7 +11,10 @@ import asyncio
 def test_app_includes_ibkr_and_analytics_routes():
     from obb_ibkr.app import app
 
-    paths = {getattr(r, "path", "") for r in app.routes}
+    # Read paths from the OpenAPI schema rather than ``app.routes``: since
+    # FastAPI 0.16x (pulled in by OpenBB 5) ``include_router`` nests routers
+    # instead of flattening their routes into ``app.routes``.
+    paths = set(app.openapi()["paths"])
     for expected in (
         "/ibkr/health",
         "/ibkr/account",

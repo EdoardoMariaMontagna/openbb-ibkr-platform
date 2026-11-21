@@ -3,7 +3,8 @@
 Checks:
   1. The composed FastAPI app imports and includes the IBKR + analytics routes.
   2. The IBKR client reports a clean (non-crashing) status when TWS is absent.
-  3. OpenBB is importable and a keyless yfinance quote works (network permitting).
+  3. OpenBB is importable and a keyless quote works (network permitting), via
+     the 4.x/5.x compatibility layer.
 
 Run (with your OpenBB virtualenv activated):
     PYTHONPATH=src python scripts/smoke_test.py
@@ -17,7 +18,8 @@ import sys
 def check_app() -> bool:
     from obb_ibkr.app import app
 
-    paths = {getattr(r, "path", "") for r in app.routes}
+    # OpenAPI schema, not app.routes: newer FastAPI nests included routers.
+    paths = set(app.openapi()["paths"])
     required = {
         "/ibkr/health",
         "/ibkr/portfolio",
@@ -47,11 +49,15 @@ async def check_ibkr_status() -> bool:
 
 def check_openbb() -> bool:
     try:
-        from openbb import obb
+        from obb_ibkr import openbb_compat
 
-        res = obb.equity.price.quote(symbol="AAPL", provider="yfinance")
+        provider = openbb_compat.default_quote_provider()
+        res = openbb_compat.equity_quote("AAPL", provider)
         rows = res.results if hasattr(res, "results") else res
-        print(f"  OK: OpenBB yfinance quote returned {len(rows)} row(s) for AAPL")
+        print(
+            f"  OK: OpenBB {openbb_compat.openbb_major()}.x {provider} quote returned "
+            f"{len(rows)} row(s) for AAPL"
+        )
         return True
     except Exception as exc:  # noqa: BLE001
         print(f"  WARN: OpenBB quote failed (network/provider?): {exc}")

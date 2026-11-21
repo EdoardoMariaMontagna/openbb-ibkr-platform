@@ -5,7 +5,7 @@ Serving targets both use this single app object:
     openbb-api --app obb_ibkr.app:app        # REST API (Swagger at /docs)
     openbb-mcp --app obb_ibkr.app:app        # MCP server for Claude Code
 
-We take OpenBB's own FastAPI app (so all ~280 OpenBB endpoints keep working
+We take OpenBB's own FastAPI app (so every OpenBB endpoint keeps working
 exactly as upstream, including its lifespan) and attach our IBKR + analytics
 routers to it. That way a single MCP server exposes market data *and* your
 live IBKR account as tools.
